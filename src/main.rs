@@ -32,8 +32,10 @@ fn main() {
     let mut wc = WNDCLASSW::default();
     wc.lpfnWndProc = Some(window_procedure);
     wc.hInstance = instance;
+    wc.hIcon = load_icon("spotify.ico").unwrap();
     wc.lpszClassName = sample_window_class_wn.as_ptr();
     wc.hCursor = load_predefined_cursor(IDCursor::Arrow).unwrap();
+    wc.style = CS_HREDRAW | CS_VREDRAW;
 
     let _atom = unsafe { register_class(&wc) }.unwrap();
 
@@ -56,11 +58,14 @@ fn main() {
             )
     }.unwrap();
 
+    let btn_hrgn = create_round_rect_rgn(0, 0, 32, 32, 32, 32).unwrap();
+    unsafe { SetWindowRgn(btn, btn_hrgn, 1) };
+
     let mut ptr = ButtonData { 
         texture: [load_icon("btn.ico").unwrap(), load_icon("btn2.ico").unwrap()],
         index: 0,
         x: (0.5, 0.0),
-        y: (1.0, -40.0),
+        y: (1.0, -74.0),
     };
 
     if let Err(e) = unsafe { set_window_userdata::<ButtonData>(btn, &mut ptr) } {
@@ -118,8 +123,7 @@ pub unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WP
         }
         WM_PAINT => {
             match begin_paint(hwnd) {
-                Ok((hdc, ps)) => {
-                    let _ = fill_rect_with_sys_color(hdc, &ps.rcPaint, SysColor::Window);
+                Ok((_hdc, ps)) => {
                     end_paint(hwnd, &ps);
                 }
                 Err(e) => {
@@ -161,6 +165,19 @@ pub unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WP
             let dims = (LOWORD(lparam as u32), HIWORD(lparam as u32));
             EnumChildWindows(hwnd, Some(enum_procedure), &dims as *const _ as LPARAM);
             return 0
+        }
+        WM_ERASEBKGND => {
+            let rc = RECT::default();
+            if let Err(e) = get_client_rect(hwnd, &rc) {
+                println!("Error while getting client rect: {}", e);
+            }
+            let side_rc = RECT { left: 0, top: 0, right: 240, bottom: rc.bottom - 92 };
+            let _ = fill_rect(wparam as HDC, &side_rc, CreateSolidBrush(SIDE_COLORREF)).unwrap();
+            let play_rc = RECT { left: 0, top: rc.bottom - 91, right: rc.right, bottom: rc.bottom };
+            let _ = fill_rect(wparam as HDC, &play_rc, CreateSolidBrush(PLAY_COLORREF)).unwrap();
+            let playtop_rc = RECT { left: 0, top: rc.bottom - 92, right: rc.right, bottom: rc.bottom - 91 };
+            let _ = fill_rect(wparam as HDC, &playtop_rc, CreateSolidBrush(PLAYTOP_COLORREF)).unwrap();
+            return 1
         }
         _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
     }

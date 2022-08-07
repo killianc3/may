@@ -39,6 +39,7 @@ pub type HICON = HANDLE;
 pub type HLOCAL = HANDLE;
 pub type HMENU = HANDLE;
 pub type HMODULE = HINSTANCE;
+pub type HRGN = HANDLE;
 pub type HWND = HANDLE;
 pub type LONG = c_long;
 pub type LONG_PTR = isize;
@@ -218,13 +219,16 @@ pub const WM_QUIT: u32 = 0x0012;
 pub const WM_COMMAND: u32 = 0x0111;
 pub const WM_SIZE: u32 = 0x0005;
 pub const WM_DRAWITEM: u32 = 0x002B;
+pub const WM_ERASEBKGND: u32 = 0x0014;
 
 pub const COLOR_WINDOW: u32 = 5;
 pub const MB_OKCANCEL: u32 = 1;
 pub const IDOK: c_int = 1;
 pub const GWLP_USERDATA: c_int = -21;
 pub const IMAGE_ICON: u32 = 1;
-pub const SIDE_BAR_RGB: COLORREF = 0x00000000;
+pub const SIDE_COLORREF: COLORREF = 0x00000000;
+pub const PLAY_COLORREF: COLORREF = 0x00181818;
+pub const PLAYTOP_COLORREF: COLORREF = 0x00282828;
 
 pub const DI_NORMAL: u32 = 0x0003;
 pub const CW_USEDEFAULT: c_int = 0x80000000_u32 as c_int;
@@ -233,8 +237,12 @@ pub const BS_OWNERDRAW: u32 = 0x0000000B;
 pub const LR_LOADFROMFILE: u32 = 0x00000010;
 pub const fn MAKEINTRESOURCEW(i: WORD) -> LPWSTR { i as ULONG_PTR as LPWSTR }
 
+pub const CS_HREDRAW: u32 = 0x0002;
+pub const CS_VREDRAW: u32 = 0x0001;
+
 #[link(name = "Gdi32")]
 extern "system" {
+    pub fn CreateRoundRectRgn(x1: c_int, y1: c_int, x2: c_int, y2: c_int, w: c_int, h: c_int) -> HRGN;
     pub fn CreateSolidBrush(color: COLORREF) -> HBRUSH;
 }
 
@@ -274,8 +282,18 @@ extern "system" {
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> ATOM;
     pub fn SetCursor(hCursor: HCURSOR) -> HCURSOR;
     pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: c_int, dwNewLong: LONG_PTR) -> LONG_PTR;
+    pub fn SetWindowRgn(hWnd: HWND, hRgn: HRGN, bRedraw: BOOL) -> BOOL;
     pub fn ShowWindow(hWnd: HWND, nCmdShow: c_int) -> BOOL;
     pub fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
+}
+
+pub fn create_round_rect_rgn(x1: c_int, y1: c_int, x2: c_int, y2: c_int, w: c_int, h: c_int) -> Result<HRGN, ()> {
+    let hrgn = unsafe { CreateRoundRectRgn(x1, y1, x2, y2, w, h) };
+    if hrgn.is_null() {
+        Err(())
+    } else {
+        Ok(hrgn)
+    }
 }
 
 pub fn get_process_handle() -> HMODULE {
@@ -292,6 +310,14 @@ pub unsafe fn register_class(window_class: &WNDCLASSW) -> Result<ATOM, Win32Erro
         Err(get_last_error())
     } else {
         Ok(atom)
+    }
+}
+
+pub unsafe fn get_client_rect(hwnd: HWND, lprect: *const RECT) -> Result<(), Win32Error> {
+    if GetClientRect(hwnd, lprect) != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
     }
 }
 
@@ -425,6 +451,14 @@ pub unsafe fn begin_paint(hwnd: HWND) -> Result<(HDC, PAINTSTRUCT), Win32Error> 
 
 pub unsafe fn end_paint(hwnd: HWND, ps: &PAINTSTRUCT) {
     EndPaint(hwnd, ps);
+}
+
+pub unsafe fn fill_rect(hdc: HDC, rect: &RECT, hbr: HBRUSH) -> Result<(), ()> {
+    if FillRect(hdc, rect, hbr) != 0 {
+        Ok(())
+    } else {
+        Err(())
+    }
 }
 
 pub unsafe fn fill_rect_with_sys_color(hdc: HDC, rect: &RECT, color: SysColor) -> Result<(), ()> {
