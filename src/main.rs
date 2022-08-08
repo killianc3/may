@@ -12,15 +12,10 @@ impl Default for WindowData {
 }
 
 pub struct ButtonData {
-    pub texture: [HICON; 2],
+    pub texture: Vec<HICON>,
     pub index: usize,
     pub x: (f32, f32),
     pub y: (f32, f32),
-}
-impl Default for ButtonData {
-    fn default() -> Self {
-        unsafe { core::mem::zeroed() }
-    }
 }
 
 fn main() {
@@ -37,40 +32,93 @@ fn main() {
     wc.hCursor = load_predefined_cursor(IDCursor::Arrow).unwrap();
     wc.style = CS_HREDRAW | CS_VREDRAW;
 
-    let _atom = unsafe { register_class(&wc) }.unwrap();
+    let _atom = register_class(&wc).unwrap();
 
-    let hwnd = unsafe {
-        create_app_window(
-            sample_window_class,
-            "Spotify",
-            None,
-            [600, 400],
-            null_mut(),
-            )
-    }.unwrap();
+    let hwnd = create_app_window(
+        sample_window_class,
+        "Spotify",
+        None,
+        [600, 400],
+        null_mut(),
+        ).unwrap();
 
-    let btn = unsafe {
-        create_custom_button(
-            [0, 0],
-            [32, 32],
-            hwnd,
-            null_mut(),
-            )
-    }.unwrap();
+    let btn_play = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_forward = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_backward = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_shuffle = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_repeat = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_like = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_mike = create_custom_button(32, 32, hwnd).unwrap();
+    let btn_list = create_custom_button(32, 32, hwnd).unwrap();
 
-    let btn_hrgn = create_round_rect_rgn(0, 0, 32, 32, 32, 32).unwrap();
-    unsafe { SetWindowRgn(btn, btn_hrgn, 1) };
+    let btn_play_hrgn = create_round_rect_rgn(0, 0, 32, 32, 32, 32).unwrap();
+    let _ = set_window_rgn(btn_play, btn_play_hrgn, 1).unwrap();
 
-    let mut ptr = ButtonData { 
-        texture: [load_icon("btn.ico").unwrap(), load_icon("btn2.ico").unwrap()],
+    let mut btn_play_data = ButtonData { 
+        texture: vec!(load_icon("icon/play.ico").unwrap(), load_icon("icon/play2.ico").unwrap()),
         index: 0,
-        x: (0.5, 0.0),
+        x: (0.5, -16.0),
         y: (1.0, -74.0),
     };
 
-    if let Err(e) = unsafe { set_window_userdata::<ButtonData>(btn, &mut ptr) } {
-        panic!("Error when set window userdata: {}", e);
+    let mut btn_forward_data = ButtonData {
+        texture: vec!(load_icon("icon/forward.ico").unwrap()),
+        index: 0,
+        x: (0.5, 32.0),
+        y: (1.0, -74.0),
     };
+
+    let mut btn_backward_data = ButtonData {
+        texture: vec!(load_icon("icon/backward.ico").unwrap()),
+        index: 0,
+        x: (0.5, -64.0),
+        y: (1.0, -74.0),
+    };
+
+    let mut btn_shuffle_data = ButtonData {
+        texture: vec!(load_icon("icon/shuffle.ico").unwrap(), load_icon("icon/shuffle2.ico").unwrap()),
+        index: 0,
+        x: (0.5, -104.0),
+        y: (1.0, -74.0),
+    };
+
+    let mut btn_repeat_data = ButtonData {
+        texture: vec!(load_icon("icon/repeat.ico").unwrap(), load_icon("icon/repeat2.ico").unwrap(), load_icon("icon/repeat3.ico").unwrap()),
+        index: 0,
+        x: (0.5, 72.0),
+        y: (1.0, -74.0),
+    };
+
+    let mut btn_like_data = ButtonData {
+        texture: vec!(load_icon("icon/like.ico").unwrap(), load_icon("icon/like2.ico").unwrap()),
+        index: 0,
+        x: (0.0, 169.0),
+        y: (1.0, -61.0),
+    };
+
+    let mut btn_mike_data = ButtonData {
+        texture: vec!(load_icon("icon/mike.ico").unwrap(), load_icon("icon/mike2.ico").unwrap()),
+        index: 0,
+        x: (1.0, -267.0),
+        y: (1.0, -61.0),
+    };
+
+    let mut btn_list_data = ButtonData {
+        texture: vec!(load_icon("icon/list.ico").unwrap(), load_icon("icon/list2.ico").unwrap()),
+        index: 0,
+        x: (1.0, -236.0),
+        y: (1.0, -61.0),
+    };
+
+
+    let _ = set_window_userdata::<ButtonData>(btn_play, &mut btn_play_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_forward, &mut btn_forward_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_backward, &mut btn_backward_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_shuffle, &mut btn_shuffle_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_repeat, &mut btn_repeat_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_like, &mut btn_like_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_mike, &mut btn_mike_data).unwrap();
+    let _ = set_window_userdata::<ButtonData>(btn_list, &mut btn_list_data).unwrap();
 
     let _previously_visible = unsafe { ShowWindow(hwnd, SW_SHOW) };
 
@@ -133,6 +181,7 @@ pub unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WP
         }
         WM_DRAWITEM => {
             let draw_st = lparam as *mut DRAWITEMSTRUCT;
+            println!("{}", (*draw_st).itemState);
             match get_window_userdata::<ButtonData>((*draw_st).hwndItem) {
                 Ok(ptr) if !ptr.is_null() => {
                     let rc = &(*draw_st).rcItem;
@@ -140,10 +189,10 @@ pub unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WP
                                        rc.bottom - rc.top, 0, null_mut(), DI_NORMAL) {
                         Ok(_) => {
                             if (*draw_st).itemState == 17 {
-                                if (*ptr).index == 0 {
-                                    (*ptr).index = 1
-                                } else {
+                                if (*ptr).index == (*ptr).texture.len() - 1 {
                                     (*ptr).index = 0
+                                } else {
+                                    (*ptr).index += 1
                                 }
                             }
                         }
@@ -179,6 +228,7 @@ pub unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, wparam: WP
             let _ = fill_rect(wparam as HDC, &playtop_rc, CreateSolidBrush(PLAYTOP_COLORREF)).unwrap();
             return 1
         }
+        0x02A1 => println!("something append"),
         _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
     }
     0

@@ -202,9 +202,6 @@ pub const WS_MINIMIZEBOX: u32 = 0x00020000;
 pub const WS_MAXIMIZEBOX: u32 = 0x00010000;
 pub const WS_OVERLAPPEDWINDOW: u32 = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
 pub const WS_EX_APPWINDOW: DWORD = 0x00040000;
-pub const WS_EX_WINDOWEDGE: DWORD = 0x00000100;
-pub const WS_EX_CLIENTEDGE: DWORD = 0x00000200;
-pub const WS_EX_OVERLAPPEDWINDOW: DWORD = WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE;
 pub const WS_CLIPCHILDREN: u32 = 0x02000000;
 pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
 pub const WS_CHILD: u32 = 0x40000000;
@@ -220,6 +217,7 @@ pub const WM_COMMAND: u32 = 0x0111;
 pub const WM_SIZE: u32 = 0x0005;
 pub const WM_DRAWITEM: u32 = 0x002B;
 pub const WM_ERASEBKGND: u32 = 0x0014;
+pub const WM_NOTIFY: u32 = 0x004E;
 
 pub const COLOR_WINDOW: u32 = 5;
 pub const MB_OKCANCEL: u32 = 1;
@@ -296,6 +294,14 @@ pub fn create_round_rect_rgn(x1: c_int, y1: c_int, x2: c_int, y2: c_int, w: c_in
     }
 }
 
+pub fn set_window_rgn(hwnd: HWND, hrgn: HRGN, bredraw: BOOL) -> Result<(), ()> {
+    if unsafe { SetWindowRgn(hwnd, hrgn, bredraw) } != 0 {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
 pub fn get_process_handle() -> HMODULE {
     unsafe { GetModuleHandleW(null()) }
 }
@@ -304,8 +310,8 @@ pub fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
-pub unsafe fn register_class(window_class: &WNDCLASSW) -> Result<ATOM, Win32Error> {
-    let atom = RegisterClassW(window_class);
+pub fn register_class(window_class: &WNDCLASSW) -> Result<ATOM, Win32Error> {
+    let atom = unsafe { RegisterClassW(window_class) };
     if atom == 0 {
         Err(get_last_error())
     } else {
@@ -313,15 +319,15 @@ pub unsafe fn register_class(window_class: &WNDCLASSW) -> Result<ATOM, Win32Erro
     }
 }
 
-pub unsafe fn get_client_rect(hwnd: HWND, lprect: *const RECT) -> Result<(), Win32Error> {
-    if GetClientRect(hwnd, lprect) != 0 {
+pub fn get_client_rect(hwnd: HWND, lprect: *const RECT) -> Result<(), Win32Error> {
+    if unsafe { GetClientRect(hwnd, lprect) } != 0 {
         Ok(())
     } else {
         Err(get_last_error())
     }
 }
 
-pub unsafe fn create_app_window(class_name: &str, window_name: &str, position: Option<[i32; 2]>, 
+pub fn create_app_window(class_name: &str, window_name: &str, position: Option<[i32; 2]>, 
                                 [width, height]: [i32; 2], create_param: LPVOID) -> Result<HWND, Win32Error> {
     let class_name_null = wide_null(class_name);
     let window_name_null = wide_null(window_name);
@@ -329,20 +335,20 @@ pub unsafe fn create_app_window(class_name: &str, window_name: &str, position: O
         Some([x, y]) => (x, y),
         None => (CW_USEDEFAULT, CW_USEDEFAULT),
     };
-    let hwnd = CreateWindowExW(
-        WS_EX_APPWINDOW | WS_EX_OVERLAPPEDWINDOW,
-        class_name_null.as_ptr(),
-        window_name_null.as_ptr(),
-        WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_OVERLAPPEDWINDOW,
-        x,
-        y,
-        width,
-        height,
-        null_mut(),
-        null_mut(),
-        get_process_handle(),
-        create_param,
-        );
+    let hwnd = unsafe { CreateWindowExW(
+            WS_EX_APPWINDOW,
+            class_name_null.as_ptr(),
+            window_name_null.as_ptr(),
+            WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_OVERLAPPEDWINDOW,
+            x,
+            y,
+            width,
+            height,
+            null_mut(),
+            null_mut(),
+            get_process_handle(),
+            create_param,
+            )};
     if hwnd.is_null() {
         Err(get_last_error())
     } else {
@@ -350,22 +356,21 @@ pub unsafe fn create_app_window(class_name: &str, window_name: &str, position: O
     }
 }
 
-pub unsafe fn create_custom_button([x, y]: [i32; 2], [width, height]: [i32; 2], parent: HWND,
-                                   create_param: LPVOID) -> Result<HWND, Win32Error> {
-    let hwnd = CreateWindowExW(
-        0,
-        wide_null("button").as_ptr(),
-        null_mut(),
-        WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        x,
-        y,
-        width,
-        height,
-        parent,
-        null_mut(),
-        null_mut(),
-        create_param,
-        );
+pub fn create_custom_button(width: i32, height: i32, parent: HWND) -> Result<HWND, Win32Error> {
+    let hwnd = unsafe { CreateWindowExW(
+            0,
+            wide_null("button").as_ptr(),
+            null_mut(),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            width,
+            height,
+            parent,
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            )};
     if hwnd.is_null() {
         Err(get_last_error())
     } else {
@@ -373,11 +378,10 @@ pub unsafe fn create_custom_button([x, y]: [i32; 2], [width, height]: [i32; 2], 
     }
 }
 
-pub unsafe fn get_window_userdata<T>(hwnd: HWND) -> Result<*mut T, Win32Error> {
+pub fn get_window_userdata<T>(hwnd: HWND) -> Result<*mut T, Win32Error> {
     set_last_error(Win32Error(0));
-    let out = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    let out = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) };
     if out == 0 {
-        // if output is 0, it's only a "real" error if the last_error is non-zero
         let last_error = get_last_error();
         if last_error.0 != 0 {
             Err(last_error)
@@ -389,9 +393,9 @@ pub unsafe fn get_window_userdata<T>(hwnd: HWND) -> Result<*mut T, Win32Error> {
     }
 }
 
-pub unsafe fn set_window_userdata<T>(hwnd: HWND, ptr: *mut T) -> Result<*mut T, Win32Error> {
+pub fn set_window_userdata<T>(hwnd: HWND, ptr: *mut T) -> Result<*mut T, Win32Error> {
     set_last_error(Win32Error(0));
-    let out = SetWindowLongPtrW(hwnd, GWLP_USERDATA, ptr as LONG_PTR);
+    let out = unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, ptr as LONG_PTR) };
     if out == 0 {
         let last_error = get_last_error();
         if last_error.0 != 0 {
@@ -439,9 +443,9 @@ pub fn LOWORD(l: DWORD) -> WORD {
     (l & 0xffff) as WORD
 }
 
-pub unsafe fn begin_paint(hwnd: HWND) -> Result<(HDC, PAINTSTRUCT), Win32Error> {
+pub fn begin_paint(hwnd: HWND) -> Result<(HDC, PAINTSTRUCT), Win32Error> {
     let mut ps = PAINTSTRUCT::default();
-    let hdc = BeginPaint(hwnd, &mut ps);
+    let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
     if hdc.is_null() {
         Err(get_last_error())
     } else {
@@ -449,20 +453,20 @@ pub unsafe fn begin_paint(hwnd: HWND) -> Result<(HDC, PAINTSTRUCT), Win32Error> 
     }
 }
 
-pub unsafe fn end_paint(hwnd: HWND, ps: &PAINTSTRUCT) {
-    EndPaint(hwnd, ps);
+pub fn end_paint(hwnd: HWND, ps: &PAINTSTRUCT) {
+    unsafe { EndPaint(hwnd, ps) };
 }
 
-pub unsafe fn fill_rect(hdc: HDC, rect: &RECT, hbr: HBRUSH) -> Result<(), ()> {
-    if FillRect(hdc, rect, hbr) != 0 {
+pub fn fill_rect(hdc: HDC, rect: &RECT, hbr: HBRUSH) -> Result<(), ()> {
+    if unsafe { FillRect(hdc, rect, hbr) } != 0 {
         Ok(())
     } else {
         Err(())
     }
 }
 
-pub unsafe fn fill_rect_with_sys_color(hdc: HDC, rect: &RECT, color: SysColor) -> Result<(), ()> {
-    if FillRect(hdc, rect, (color as u32 + 1) as HBRUSH) != 0 {
+pub fn fill_rect_with_sys_color(hdc: HDC, rect: &RECT, color: SysColor) -> Result<(), ()> {
+    if unsafe { FillRect(hdc, rect, (color as u32 + 1) as HBRUSH) } != 0 {
         Ok(())
     } else {
         Err(())
@@ -487,9 +491,9 @@ pub fn load_icon(source: &str) -> Result<HICON, Win32Error> {
     }
 }
 
-pub unsafe fn draw_icon_ex(hdc: HDC, xleft: c_int, ytop: c_int, hicon: HICON, cxwidth: c_int, cywidth: c_int,
-                           istepifanicur: UINT, hbrflickerfreedraw: HBRUSH, diflags: UINT) -> Result<(), Win32Error> {
-    if DrawIconEx(hdc, xleft, ytop, hicon, cxwidth, cywidth, istepifanicur, hbrflickerfreedraw, diflags) != 0 {
+pub fn draw_icon_ex(hdc: HDC, xleft: c_int, ytop: c_int, hicon: HICON, cxwidth: c_int, cywidth: c_int,
+                    istepifanicur: UINT, hbrflickerfreedraw: HBRUSH, diflags: UINT) -> Result<(), Win32Error> {
+    if unsafe { DrawIconEx(hdc, xleft, ytop, hicon, cxwidth, cywidth, istepifanicur, hbrflickerfreedraw, diflags) } != 0 {
         Ok(())
     } else {
         Err(get_last_error())
