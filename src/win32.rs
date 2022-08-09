@@ -227,6 +227,7 @@ pub const IMAGE_ICON: u32 = 1;
 pub const SIDE_COLORREF: COLORREF = 0x00000000;
 pub const PLAY_COLORREF: COLORREF = 0x00181818;
 pub const PLAYTOP_COLORREF: COLORREF = 0x00282828;
+pub const ODT_BUTTON: UINT = 4;
 
 pub const DI_NORMAL: u32 = 0x0003;
 pub const CW_USEDEFAULT: c_int = 0x80000000_u32 as c_int;
@@ -264,8 +265,6 @@ extern "system" {
     pub fn DestroyWindow(hWnd: HWND) -> BOOL;
     pub fn DispatchMessageW(lpMsg: *const MSG) -> LRESULT;
     pub fn DrawIcon(hDC: HDC, X: c_int, Y: c_int, hIcon: HICON) -> BOOL;
-    pub fn DrawIconEx(hdc: HDC, xLeft: c_int, yTop: c_int, hIcon: HICON, cxWidth: c_int, cyWidth: c_int,
-                      istepIfAniCur: UINT, hbrFlickerFreeDraw: HBRUSH, diFlags: UINT) -> BOOL;
     pub fn EndPaint(hWnd: HWND, lpPaint: *const PAINTSTRUCT) -> BOOL;
     pub fn EnumChildWindows(hWndParent: HWND, lpEnumFonc: ENUMCHILDPROC, lParam: LPARAM) -> BOOL;
     pub fn FillRect(hDC: HDC, lprc: *const RECT, hbr: HBRUSH) -> c_int;
@@ -280,6 +279,7 @@ extern "system" {
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> ATOM;
     pub fn SetCursor(hCursor: HCURSOR) -> HCURSOR;
     pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: c_int, dwNewLong: LONG_PTR) -> LONG_PTR;
+    pub fn SetWindowPos(hWnd: HWND, hWndInsertAfter: HWND, X: c_int, Y: c_int, cx: c_int, cy: c_int, uFlags: UINT) -> BOOL;
     pub fn SetWindowRgn(hWnd: HWND, hRgn: HRGN, bRedraw: BOOL) -> BOOL;
     pub fn ShowWindow(hWnd: HWND, nCmdShow: c_int) -> BOOL;
     pub fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
@@ -299,6 +299,14 @@ pub fn set_window_rgn(hwnd: HWND, hrgn: HRGN, bredraw: BOOL) -> Result<(), ()> {
         Ok(())
     } else {
         Err(())
+    }
+}
+
+pub fn set_window_pos(hwnd: HWND, x: i32, y: i32) -> Result<(), Win32Error> {
+    if unsafe { SetWindowPos(hwnd, null_mut(), x, y, 0, 0, 0x0001 as u32) } != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
     }
 }
 
@@ -483,7 +491,7 @@ pub fn load_predefined_cursor(cursor: IDCursor) -> Result<HCURSOR, Win32Error> {
 }
 
 pub fn load_icon(source: &str) -> Result<HICON, Win32Error> {
-    let hicon = unsafe { LoadImageW(null_mut(), wide_null(source).as_ptr(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)};
+    let hicon = unsafe { LoadImageW(null_mut(), wide_null(&format!("icon/{}.ico", source)).as_ptr(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)};
     if hicon.is_null() {
         Err(get_last_error())
     } else {
@@ -491,9 +499,8 @@ pub fn load_icon(source: &str) -> Result<HICON, Win32Error> {
     }
 }
 
-pub fn draw_icon_ex(hdc: HDC, xleft: c_int, ytop: c_int, hicon: HICON, cxwidth: c_int, cywidth: c_int,
-                    istepifanicur: UINT, hbrflickerfreedraw: HBRUSH, diflags: UINT) -> Result<(), Win32Error> {
-    if unsafe { DrawIconEx(hdc, xleft, ytop, hicon, cxwidth, cywidth, istepifanicur, hbrflickerfreedraw, diflags) } != 0 {
+pub fn draw_icon(hdc: HDC, x: c_int, y: c_int, hicon: HICON) -> Result<(), Win32Error> {
+    if unsafe { DrawIcon(hdc, x, y, hicon) } != 0 {
         Ok(())
     } else {
         Err(get_last_error())
