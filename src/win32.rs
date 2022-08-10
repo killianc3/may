@@ -2,19 +2,19 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use core::ptr::{null_mut, null};
 use core::ffi::c_void;
+use core::ptr::{null, null_mut};
 
 macro_rules! unsafe_impl_default_zeroed {
-  ($t:ty) => {
-    impl Default for $t {
-      #[inline]
-      #[must_use]
-      fn default() -> Self {
-        unsafe { core::mem::zeroed() }
-      }
-    }
-  };
+    ($t:ty) => {
+        impl Default for $t {
+            #[inline]
+            #[must_use]
+            fn default() -> Self {
+                unsafe { core::mem::zeroed() }
+            }
+        }
+    };
 }
 
 pub type c_char = i8;
@@ -29,7 +29,8 @@ pub type ATOM = WORD;
 pub type BYTE = u8;
 pub type BOOL = c_int;
 pub type DWORD = c_ulong;
-pub type COLORREF= u32;
+pub type DWORD_PTR = ULONG_PTR;
+pub type COLORREF = u32;
 pub type HANDLE = PVOID;
 pub type HBRUSH = HANDLE;
 pub type HCURSOR = HICON;
@@ -57,7 +58,9 @@ pub type WCHAR = wchar_t;
 pub type WORD = c_ushort;
 pub type WPARAM = UINT_PTR;
 
-pub type WNDPROC = Option<unsafe extern "system" fn(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM) -> LRESULT>;
+pub type WNDPROC = Option<
+    unsafe extern "system" fn(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM) -> LRESULT,
+>;
 pub type ENUMCHILDPROC = Option<unsafe extern "system" fn(hwnd: HWND, lParam: LPARAM) -> BOOL>;
 
 pub enum IDCursor {
@@ -194,13 +197,34 @@ pub struct DRAWITEMSTRUCT {
 }
 unsafe_impl_default_zeroed!(DRAWITEMSTRUCT);
 
+#[repr(C)]
+pub struct NMHDR {
+    pub hwndFrom: HWND,
+    pub idFrom: usize, // louche 
+    pub code: UINT,
+}
+unsafe_impl_default_zeroed!(NMHDR);
+
+#[repr(C)]
+pub struct NMCUSTOMDRAW {
+    pub hdr: NMHDR,
+    pub dwDrawStage: DWORD,
+    pub hdc: HDC,
+    pub rc: RECT,
+    pub dwItemSpec: DWORD_PTR,
+    pub uItemState: UINT,
+    pub lItemlParam: LPARAM,
+}
+unsafe_impl_default_zeroed!(NMCUSTOMDRAW);
+
 pub const WS_OVERLAPPED: u32 = 0x00000000;
 pub const WS_CAPTION: u32 = 0x00C00000;
 pub const WS_SYSMENU: u32 = 0x00080000;
 pub const WS_THICKFRAME: u32 = 0x00040000;
 pub const WS_MINIMIZEBOX: u32 = 0x00020000;
 pub const WS_MAXIMIZEBOX: u32 = 0x00010000;
-pub const WS_OVERLAPPEDWINDOW: u32 = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+pub const WS_OVERLAPPEDWINDOW: u32 =
+    WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
 pub const WS_EX_APPWINDOW: DWORD = 0x00040000;
 pub const WS_CLIPCHILDREN: u32 = 0x02000000;
 pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
@@ -228,27 +252,60 @@ pub const SIDE_COLORREF: COLORREF = 0x00000000;
 pub const PLAY_COLORREF: COLORREF = 0x00181818;
 pub const PLAYTOP_COLORREF: COLORREF = 0x00282828;
 pub const ODT_BUTTON: UINT = 4;
+pub const NM_CUSTOMDRAW: UINT = 4_294_967_284u32;
 
 pub const DI_NORMAL: u32 = 0x0003;
 pub const CW_USEDEFAULT: c_int = 0x80000000_u32 as c_int;
 pub const SW_SHOW: c_int = 5;
 pub const BS_OWNERDRAW: u32 = 0x0000000B;
 pub const LR_LOADFROMFILE: u32 = 0x00000010;
-pub const fn MAKEINTRESOURCEW(i: WORD) -> LPWSTR { i as ULONG_PTR as LPWSTR }
+pub const fn MAKEINTRESOURCEW(i: WORD) -> LPWSTR {
+    i as ULONG_PTR as LPWSTR
+}
+
+pub const TBCD_TICS: DWORD_PTR = 0x0001;
+pub const TBCD_THUMB: DWORD_PTR = 0x0002;
+pub const TBCD_CHANNEL: DWORD_PTR = 0x0003;
+
+pub const CDDS_PREPAINT: DWORD = 0x00000001;
+pub const CDDS_ITEMPREPAINT: DWORD = 0x00010001;
+pub const CDDS_POSTPAINT: DWORD = 0x00000002;
+pub const CDDS_DOERASE: DWORD = 0x00000008;
+pub const CDRF_DOERASE: LRESULT = 0x00000008;
+pub const CDRF_NOTIFYITEMDRAW: LRESULT = 0x00000020;
+pub const CDRF_NOTIFYPOSTPAINT: LRESULT = 0x00000010;
+pub const CDRF_SKIPDEFAULT: LRESULT = 0x00000004;
 
 pub const CS_HREDRAW: u32 = 0x0002;
 pub const CS_VREDRAW: u32 = 0x0001;
 
+pub const BTN_ID: isize = 1;
+
 #[link(name = "Gdi32")]
 extern "system" {
-    pub fn CreateRoundRectRgn(x1: c_int, y1: c_int, x2: c_int, y2: c_int, w: c_int, h: c_int) -> HRGN;
+    pub fn CreateRoundRectRgn(
+        x1: c_int,
+        y1: c_int,
+        x2: c_int,
+        y2: c_int,
+        w: c_int,
+        h: c_int,
+    ) -> HRGN;
     pub fn CreateSolidBrush(color: COLORREF) -> HBRUSH;
+    pub fn Ellipse(hdc: HDC, left: c_int, top: c_int, right: c_int, bottom: c_int) -> BOOL;
 }
 
 #[link(name = "Kernel32")]
 extern "system" {
-    pub fn FormatMessageW(dwFlags: DWORD, lpSource: LPCVOID, dwMessageId: DWORD, dwLanguageId: DWORD,
-                          lpBuffer: LPWSTR, nSize: DWORD, Arguments: va_list) -> DWORD;
+    pub fn FormatMessageW(
+        dwFlags: DWORD,
+        lpSource: LPCVOID,
+        dwMessageId: DWORD,
+        dwLanguageId: DWORD,
+        lpBuffer: LPWSTR,
+        nSize: DWORD,
+        Arguments: va_list,
+    ) -> DWORD;
     pub fn GetLastError() -> DWORD;
     pub fn GetModuleHandleW(lpModuleName: LPCWSTR) -> HMODULE;
     pub fn LocalFree(hMem: HLOCAL) -> HLOCAL;
@@ -258,9 +315,20 @@ extern "system" {
 #[link(name = "User32")]
 extern "system" {
     pub fn BeginPaint(hWnd: HWND, lpPaint: *const PAINTSTRUCT) -> HDC;
-    pub fn CreateWindowExW(dwExStyle: DWORD, lpClassName: LPCWSTR, lpWindowName: LPCWSTR, dwStyle: DWORD,
-                           X: c_int, Y: c_int, nWidth: c_int, nHeight: c_int, hWndParent: HWND,
-                           hMenu: HMENU, hInstance: HINSTANCE, lpParam: LPVOID) -> HWND;
+    pub fn CreateWindowExW(
+        dwExStyle: DWORD,
+        lpClassName: LPCWSTR,
+        lpWindowName: LPCWSTR,
+        dwStyle: DWORD,
+        X: c_int,
+        Y: c_int,
+        nWidth: c_int,
+        nHeight: c_int,
+        hWndParent: HWND,
+        hMenu: HMENU,
+        hInstance: HINSTANCE,
+        lpParam: LPVOID,
+    ) -> HWND;
     pub fn DefWindowProcW(hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> LRESULT;
     pub fn DestroyWindow(hWnd: HWND) -> BOOL;
     pub fn DispatchMessageW(lpMsg: *const MSG) -> LRESULT;
@@ -268,24 +336,69 @@ extern "system" {
     pub fn EndPaint(hWnd: HWND, lpPaint: *const PAINTSTRUCT) -> BOOL;
     pub fn EnumChildWindows(hWndParent: HWND, lpEnumFonc: ENUMCHILDPROC, lParam: LPARAM) -> BOOL;
     pub fn FillRect(hDC: HDC, lprc: *const RECT, hbr: HBRUSH) -> c_int;
-    pub fn GetMessageW(lpMsg: *const MSG, hWnd: HWND, wMsgFilterMin: UINT, wMsgFilterMax: UINT) -> BOOL;
+    pub fn GetMessageW(
+        lpMsg: *const MSG,
+        hWnd: HWND,
+        wMsgFilterMin: UINT,
+        wMsgFilterMax: UINT,
+    ) -> BOOL;
+    pub fn GetClassNameW(hWnd: HWND, lpClassName: LPWSTR, nMaxCount: c_int) -> c_int;
     pub fn GetClientRect(hWnd: HWND, lpRect: *const RECT) -> BOOL;
     pub fn GetWindowLongPtrW(hWnd: HWND, nIndex: c_int) -> LONG_PTR;
     pub fn LoadCursorW(hInstance: HINSTANCE, lpCursorName: LPCWSTR) -> HCURSOR;
-    pub fn LoadImageW(hInstance: HINSTANCE, name: LPCWSTR, r#type: UINT, cx: c_int, cy: c_int, fuLoad: UINT) -> HICON;
+    pub fn LoadImageW(
+        hInstance: HINSTANCE,
+        name: LPCWSTR,
+        r#type: UINT,
+        cx: c_int,
+        cy: c_int,
+        fuLoad: UINT,
+    ) -> HICON;
     pub fn MessageBoxW(hWnd: HWND, lpText: LPCWSTR, lpCaption: LPCWSTR, uType: UINT) -> c_int;
-    pub fn MoveWindow(hWnd: HWND, X: c_int, Y: c_int, nWidth: c_int, nHeight: c_int, bRepaint: BOOL) -> BOOL;
+    pub fn MoveWindow(
+        hWnd: HWND,
+        X: c_int,
+        Y: c_int,
+        nWidth: c_int,
+        nHeight: c_int,
+        bRepaint: BOOL,
+    ) -> BOOL;
     pub fn PostQuitMessage(nExitCode: c_int);
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> ATOM;
     pub fn SetCursor(hCursor: HCURSOR) -> HCURSOR;
     pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: c_int, dwNewLong: LONG_PTR) -> LONG_PTR;
-    pub fn SetWindowPos(hWnd: HWND, hWndInsertAfter: HWND, X: c_int, Y: c_int, cx: c_int, cy: c_int, uFlags: UINT) -> BOOL;
+    pub fn SetWindowPos(
+        hWnd: HWND,
+        hWndInsertAfter: HWND,
+        X: c_int,
+        Y: c_int,
+        cx: c_int,
+        cy: c_int,
+        uFlags: UINT,
+    ) -> BOOL;
     pub fn SetWindowRgn(hWnd: HWND, hRgn: HRGN, bRedraw: BOOL) -> BOOL;
     pub fn ShowWindow(hWnd: HWND, nCmdShow: c_int) -> BOOL;
     pub fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
 }
 
-pub fn create_round_rect_rgn(x1: c_int, y1: c_int, x2: c_int, y2: c_int, w: c_int, h: c_int) -> Result<HRGN, ()> {
+pub fn get_class_name(hwnd: HWND) -> Result<String, Win32Error> {
+    let mut class_name: Vec<u16> = vec![0, 0, 0, 0, 0, 0, 0, 0];
+    if unsafe { GetClassNameW(hwnd, class_name.as_mut_ptr(), 8) } == 0 {
+        Err(get_last_error())
+    } else {
+        println!("{}", String::from_utf16(&class_name[..]).unwrap());
+        Ok(String::from_utf16(&class_name[..]).unwrap())
+    }
+}
+
+pub fn create_round_rect_rgn(
+    x1: c_int,
+    y1: c_int,
+    x2: c_int,
+    y2: c_int,
+    w: c_int,
+    h: c_int,
+) -> Result<HRGN, ()> {
     let hrgn = unsafe { CreateRoundRectRgn(x1, y1, x2, y2, w, h) };
     if hrgn.is_null() {
         Err(())
@@ -335,15 +448,21 @@ pub fn get_client_rect(hwnd: HWND, lprect: *const RECT) -> Result<(), Win32Error
     }
 }
 
-pub fn create_app_window(class_name: &str, window_name: &str, position: Option<[i32; 2]>, 
-                                [width, height]: [i32; 2], create_param: LPVOID) -> Result<HWND, Win32Error> {
+pub fn create_app_window(
+    class_name: &str,
+    window_name: &str,
+    position: Option<[i32; 2]>,
+    [width, height]: [i32; 2],
+    create_param: LPVOID,
+) -> Result<HWND, Win32Error> {
     let class_name_null = wide_null(class_name);
     let window_name_null = wide_null(window_name);
     let (x, y) = match position {
         Some([x, y]) => (x, y),
         None => (CW_USEDEFAULT, CW_USEDEFAULT),
     };
-    let hwnd = unsafe { CreateWindowExW(
+    let hwnd = unsafe {
+        CreateWindowExW(
             WS_EX_APPWINDOW,
             class_name_null.as_ptr(),
             window_name_null.as_ptr(),
@@ -356,7 +475,8 @@ pub fn create_app_window(class_name: &str, window_name: &str, position: Option<[
             null_mut(),
             get_process_handle(),
             create_param,
-            )};
+        )
+    };
     if hwnd.is_null() {
         Err(get_last_error())
     } else {
@@ -365,7 +485,8 @@ pub fn create_app_window(class_name: &str, window_name: &str, position: Option<[
 }
 
 pub fn create_custom_button(width: i32, height: i32, parent: HWND) -> Result<HWND, Win32Error> {
-    let hwnd = unsafe { CreateWindowExW(
+    let hwnd = unsafe {
+        CreateWindowExW(
             0,
             wide_null("button").as_ptr(),
             null_mut(),
@@ -375,10 +496,11 @@ pub fn create_custom_button(width: i32, height: i32, parent: HWND) -> Result<HWN
             width,
             height,
             parent,
+            BTN_ID as HMENU,
             null_mut(),
             null_mut(),
-            null_mut(),
-            )};
+        )
+    };
     if hwnd.is_null() {
         Err(get_last_error())
     } else {
@@ -398,6 +520,15 @@ pub fn get_window_userdata<T>(hwnd: HWND) -> Result<*mut T, Win32Error> {
         }
     } else {
         Ok(out as *mut T)
+    }
+}
+
+pub fn get_window_id(hwnd: HWND) -> Result<isize, Win32Error> {
+    let out = unsafe { GetWindowLongPtrW(hwnd, -12 as i32) };
+    if out == 0 {
+        Err(get_last_error())
+    } else {
+        Ok(out)
     }
 }
 
@@ -435,7 +566,14 @@ pub fn post_quit_message(exit_code: c_int) {
     unsafe { PostQuitMessage(exit_code) }
 }
 
-pub fn move_window(hwnd: HWND, x: c_int, y: c_int, nwidth: c_int, nheight: c_int, brepaint: BOOL) -> Result<(), Win32Error> {
+pub fn move_window(
+    hwnd: HWND,
+    x: c_int,
+    y: c_int,
+    nwidth: c_int,
+    nheight: c_int,
+    brepaint: BOOL,
+) -> Result<(), Win32Error> {
     if unsafe { MoveWindow(hwnd, x, y, nwidth, nheight, brepaint) } != 0 {
         Ok(())
     } else {
@@ -491,7 +629,16 @@ pub fn load_predefined_cursor(cursor: IDCursor) -> Result<HCURSOR, Win32Error> {
 }
 
 pub fn load_icon(source: &str) -> Result<HICON, Win32Error> {
-    let hicon = unsafe { LoadImageW(null_mut(), wide_null(&format!("icon/{}.ico", source)).as_ptr(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)};
+    let hicon = unsafe {
+        LoadImageW(
+            null_mut(),
+            wide_null(&format!("icon/{}.ico", source)).as_ptr(),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE,
+        )
+    };
     if hicon.is_null() {
         Err(get_last_error())
     } else {
@@ -517,9 +664,9 @@ pub fn get_last_error() -> Win32Error {
 
 struct OnDropLocalFree(HLOCAL);
 impl Drop for OnDropLocalFree {
-  fn drop(&mut self) {
-    unsafe { LocalFree(self.0) };
-  }
+    fn drop(&mut self) {
+        unsafe { LocalFree(self.0) };
+    }
 }
 
 #[derive(Debug)]
@@ -534,7 +681,9 @@ impl core::fmt::Display for Win32Error {
         pub const FORMAT_MESSAGE_ALLOCATE_BUFFER: DWORD = 0x00000100;
         pub const FORMAT_MESSAGE_FROM_SYSTEM: DWORD = 0x00001000;
         pub const FORMAT_MESSAGE_IGNORE_INSERTS: DWORD = 0x00000200;
-        let dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+        let dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER
+            | FORMAT_MESSAGE_FROM_SYSTEM
+            | FORMAT_MESSAGE_IGNORE_INSERTS;
         let lpSource = null_mut();
         let dwMessageId = self.0;
         let dwLanguageId = 0;
@@ -551,15 +700,14 @@ impl core::fmt::Display for Win32Error {
                 lpBuffer,
                 nSize,
                 Arguments,
-                )
+            )
         };
         if tchar_count_excluding_null == 0 || buffer.is_null() {
             return Err(core::fmt::Error);
         } else {
             let _on_drop = OnDropLocalFree(buffer as HLOCAL);
-            let buffer_slice: &[u16] = unsafe {
-                core::slice::from_raw_parts(buffer, tchar_count_excluding_null as usize)
-            };
+            let buffer_slice: &[u16] =
+                unsafe { core::slice::from_raw_parts(buffer, tchar_count_excluding_null as usize) };
             for decode_result in core::char::decode_utf16(buffer_slice.iter().copied()) {
                 match decode_result {
                     Ok('\r') | Ok('\n') => write!(f, " ")?,
