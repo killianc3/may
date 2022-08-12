@@ -1,6 +1,9 @@
 #![cfg(windows)]
 
-use core::{ptr::{null, null_mut}, ffi::c_void};
+use core::{
+    ffi::c_void,
+    ptr::{null, null_mut},
+};
 
 macro_rules! unsafe_impl_default_zeroed {
     ($t:ty) => {
@@ -76,6 +79,7 @@ pub type Atom = Word;
 pub type Bool = i32;
 pub type Byte = u8;
 pub type Dword = u32;
+pub type DwordPtr = UlongPtr;
 pub type Handle = Pvoid;
 pub type Hbrush = Handle;
 pub type Hcursor = Handle;
@@ -108,6 +112,9 @@ pub type Wparam = UintPtr;
 pub type Wndproc = Option<
     unsafe extern "system" fn(hwnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam) -> Lresult,
 >;
+pub type Subclassproc = Option<
+    unsafe extern "system" fn(hwnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam, uIdSubclass: UintPtr, dwRefData: DwordPtr) -> Lresult,
+>;
 
 pub const CS_HREDRAW: u32 = 0x0002;
 pub const CS_VREDRAW: u32 = 0x0001;
@@ -123,6 +130,7 @@ pub const WM_SIZE: u32 = 0x0005;
 pub const WM_DESTROY: u32 = 0x0002;
 pub const WM_CLOSE: u32 = 0x0010;
 pub const WM_ERASEBKGND: u32 = 0x0014;
+pub const WM_NCDESTROY: u32 = 0x0082;
 
 pub const WS_CLIPCHILDREN: u32 = 0x02000000;
 pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
@@ -134,6 +142,8 @@ pub const WS_MINIMIZEBOX: u32 = 0x00020000;
 pub const WS_MAXIMIZEBOX: u32 = 0x00010000;
 pub const WS_OVERLAPPEDWINDOW: u32 =
     WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+pub const WS_CHILD: u32 = 0x40000000;
+pub const WS_VISIBLE: u32 = 0x10000000;
 
 pub const fn makeintresourcew(i: Word) -> Lpwstr {
     i as UlongPtr as Lpwstr
@@ -246,6 +256,7 @@ extern "system" {
     pub fn DestroyWindow(hWnd: Hwnd) -> Bool;
     pub fn DispatchMessageW(lpMsg: *const MSG) -> Lresult;
     pub fn EndPaint(hWnd: Hwnd, lpPaint: *const PAINTSTRUCT) -> Bool;
+    pub fn GetPropW(hWnd: Hwnd, lpString: Lpcwstr) -> Handle;
     pub fn GetMessageW(
         lpMsg: *const MSG,
         hWnd: Hwnd,
@@ -255,8 +266,16 @@ extern "system" {
     pub fn LoadCursorW(hInstance: Hinstance, lpCursorName: Lpcwstr) -> Hcursor;
     pub fn PostQuitMessage(nExitCode: Int);
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> Atom;
+    pub fn RemovePropW(hWnd: Hwnd, lpString: Lpcwstr) -> Handle;
+    pub fn SetPropW(hWnd: Hwnd, lpString: Lpcwstr, hData: Handle) -> Bool;
     pub fn ShowWindow(hWnd: Hwnd, nCmdShow: Int) -> Bool;
     pub fn TranslateMessage(lpMsg: *const MSG) -> Bool;
+}
+
+#[link(name = "Comctl32")]
+extern "system" {
+    pub fn DefSubclassProc(hWnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam) -> Lresult;
+    pub fn SetWindowSubclass(hWnd: Hwnd, pfnSubclass: Subclassproc, uIdSubclass: UintPtr, dwRefData: DwordPtr) -> Bool;
 }
 
 pub fn get_process_handle() -> Hmodule {
@@ -319,4 +338,90 @@ pub fn end_paint(hwnd: Hwnd, ps: &PAINTSTRUCT) {
 
 pub fn post_quit_message(exit_code: Int) {
     unsafe { PostQuitMessage(exit_code) }
+}
+
+pub fn create_app_window(
+    class_name: &str,
+    window_name: &str,
+    width: i32,
+    height: i32,
+    instance: Hinstance,
+) -> Result<Hwnd, Win32Error> {
+    let hwnd = unsafe {
+        CreateWindowExW(
+            0,
+            wide_null(class_name).as_ptr(),
+            wide_null(window_name).as_ptr(),
+            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            width,
+            height,
+            null_mut(),
+            null_mut(),
+            instance,
+            null_mut(),
+        )
+    };
+    if hwnd.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hwnd)
+    }
+}
+
+pub fn create_control_window(
+    class_name: &str,
+    width: i32,
+    height: i32,
+    parent: Hwnd,
+    id: u32,
+    instance: Hinstance,
+) -> Result<Hwnd, Win32Error> {
+    let hwnd = unsafe {
+        CreateWindowExW(
+            0,
+            wide_null(class_name).as_ptr(),
+            null_mut(),
+            WS_CHILD | WS_VISIBLE,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            width,
+            height,
+            parent,
+            id as Hmenu,
+            instance,
+            null_mut(),
+        )
+    };
+    if hwnd.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hwnd)
+    }
+}
+
+pub fn set_window_subclass(hwnd: Hwnd, pfnsubclass: Subclassproc, uidsubclass: UintPtr) -> Result<(), ()> {
+    if unsafe { SetWindowSubclass(hwnd, pfnsubclass, uidsubclass, 0) } == 0 {
+        Err(())
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_prop<T>(hwnd: Hwnd, string: &str, data: &mut T) -> Result<(), Win32Error> {
+    if unsafe { SetPropW(hwnd, wide_null(string).as_ptr(), data as *mut _ as Handle) } == 0 {
+        Err(get_last_error())
+    } else {
+        Ok(())
+    }
+}
+
+pub fn get_prop<T>(hwnd: Hwnd, string: &str) -> Result<&mut T, ()> {
+    let handle = unsafe { GetPropW(hwnd, wide_null(string).as_ptr()) };
+    if handle.is_null() {
+        Err(())
+    } else {
+        Ok(unsafe { &mut *(handle as *mut T) })
+    }
 }

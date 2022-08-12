@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use core::ptr::null_mut;
 use may::win32::*;
+use core::ptr::null_mut;
+
+const ID_TEST: u32 = 13; 
 
 fn main() {
     let instance = get_process_handle();
@@ -15,21 +17,13 @@ fn main() {
 
     let _atom = register_class(&wc).unwrap();
 
-    let hwnd = unsafe { CreateWindowExW(
-            0,
-            wide_null("master").as_ptr(),
-            wide_null("spotify").as_ptr(),
-            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            600,
-            400,
-            null_mut(),
-            null_mut(),
-            instance,
-            null_mut(),
-            )
-    };
+    let hwnd = create_app_window("master", "spotify", 600, 400, instance).unwrap();
+
+    let mut data = (0.1_f32, 1_i32);
+    let data_ptr: Handle = &mut data as *mut _ as Handle;
+    let test_hwnd = create_control_window("button", 40, 40, hwnd, ID_TEST, instance).unwrap();
+    set_window_subclass(test_hwnd, Some(test_procedure), ID_TEST as usize).unwrap();
+    set_prop(test_hwnd, "test", &mut data).unwrap();
 
     let _previously_visible = unsafe { ShowWindow(hwnd, SW_SHOW) };
 
@@ -62,18 +56,40 @@ pub unsafe extern "system" fn window_procedure(
                 Ok((_hdc, ps)) => end_paint(hwnd, &ps),
                 Err(e) => println!("Couldn't begin painting: {}", e),
             }
-            return 0
+            return 0;
         }
         WM_SIZE => return 0,
         WM_DESTROY => {
             post_quit_message(0);
-            return 0
+            return 0;
         }
         WM_CLOSE => {
             drop(DestroyWindow(hwnd));
-            return 0
+            return 0;
         }
         WM_ERASEBKGND => return 0,
         _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+pub unsafe extern "system" fn test_procedure(
+    hwnd: Hwnd,
+    msg: Uint,
+    wparam: Wparam,
+    lparam: Lparam,
+    uidsubclass: UintPtr,
+    dwrefdata: DwordPtr,
+) -> Lresult {
+    match msg {
+        0x0111 => {
+            let data: &mut (f32, i32) = get_prop(hwnd, "test").unwrap();
+            println!("{:?}", data);
+            return 0;
+        }
+        WM_NCDESTROY => {
+            drop(RemovePropW(hwnd, wide_null("test").as_ptr()));
+            return 0;
+        }
+        _ => return DefSubclassProc(hwnd, msg, wparam, lparam),
     }
 }
