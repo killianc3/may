@@ -78,12 +78,15 @@ impl core::fmt::Display for Win32Error {
 pub type Atom = Word;
 pub type Bool = i32;
 pub type Byte = u8;
+pub type Colorref = Dword;
 pub type Dword = u32;
 pub type DwordPtr = UlongPtr;
 pub type Handle = Pvoid;
 pub type Hbrush = Handle;
 pub type Hcursor = Handle;
 pub type Hdc = Handle;
+pub type Hdwp = Handle;
+pub type Hgdiobj = *mut c_void;
 pub type Hicon = Handle;
 pub type Hinstance = Handle;
 pub type Hlocal = Handle;
@@ -113,13 +116,22 @@ pub type Wndproc = Option<
     unsafe extern "system" fn(hwnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam) -> Lresult,
 >;
 pub type Subclassproc = Option<
-    unsafe extern "system" fn(hwnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam, uIdSubclass: UintPtr, dwRefData: DwordPtr) -> Lresult,
+    unsafe extern "system" fn(
+        hwnd: Hwnd,
+        uMsg: Uint,
+        wParam: Wparam,
+        lParam: Lparam,
+        uIdSubclass: UintPtr,
+        dwRefData: DwordPtr,
+    ) -> Lresult,
 >;
 
 pub const CS_HREDRAW: u32 = 0x0002;
 pub const CS_VREDRAW: u32 = 0x0001;
 
 pub const CW_USEDEFAULT: i32 = 0x80000000_u32 as i32;
+
+pub const LR_LOADFROMFILE: u32 = 0x00000010;
 
 pub const SW_SHOW: i32 = 5;
 
@@ -131,6 +143,10 @@ pub const WM_DESTROY: u32 = 0x0002;
 pub const WM_CLOSE: u32 = 0x0010;
 pub const WM_ERASEBKGND: u32 = 0x0014;
 pub const WM_NCDESTROY: u32 = 0x0082;
+pub const WM_MOUSEMOVE: u32 = 0x0200;
+pub const WM_LBUTTONDOWN: u32 = 0x0201;
+pub const WM_LBUTTONUP: u32 = 0x0202;
+pub const WM_MOUSELEAVE: u32 = 0x02a3;
 
 pub const WS_CLIPCHILDREN: u32 = 0x02000000;
 pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
@@ -147,6 +163,10 @@ pub const WS_VISIBLE: u32 = 0x10000000;
 
 pub const fn makeintresourcew(i: Word) -> Lpwstr {
     i as UlongPtr as Lpwstr
+}
+
+pub const fn rgb(r: u32, g: u32, b: u32) -> Colorref {
+    r | (g << 8) | (b << 16)
 }
 
 pub enum IDCursor {
@@ -219,6 +239,20 @@ pub struct RECT {
 }
 unsafe_impl_default_zeroed!(RECT);
 
+#[repr(C)]
+pub struct NMHDR {
+    pub hwnd_from: Hwnd,
+    pub id_from: UintPtr,
+    pub code: Uint,
+}
+unsafe_impl_default_zeroed!(NMHDR);
+
+#[repr(C)]
+pub struct NMBCHOTITEM {
+    pub hdr: NMHDR,
+    pub dw_flags: Dword,
+}
+
 #[link(name = "Kernel32")]
 extern "system" {
     pub fn FormatMessageW(
@@ -237,6 +271,7 @@ extern "system" {
 
 #[link(name = "User32")]
 extern "system" {
+    pub fn BeginDeferWindowPos(nNumWindiw: Int) -> Hdwp;
     pub fn BeginPaint(hWnd: Hwnd, lpPaint: *const PAINTSTRUCT) -> Hdc;
     pub fn CreateWindowExW(
         dwExStyle: Dword,
@@ -252,10 +287,23 @@ extern "system" {
         hInstance: Hinstance,
         lpParam: Lpvoid,
     ) -> Hwnd;
+    pub fn DeferWindowPos(
+        hWinPosInfo: Hdwp,
+        hWnd: Hwnd,
+        hWndInsertAfter: Hwnd,
+        x: Int,
+        y: Int,
+        cx: Int,
+        cy: Int,
+        uFlags: Uint,
+    ) -> Hdwp;
     pub fn DefWindowProcW(hWnd: Hwnd, Msg: Uint, wParam: Wparam, lParam: Lparam) -> Lresult;
     pub fn DestroyWindow(hWnd: Hwnd) -> Bool;
     pub fn DispatchMessageW(lpMsg: *const MSG) -> Lresult;
+    pub fn DrawIcon(hDC: Hdc, X: Int, Y: Int, hIcon: Hicon) -> Bool;
+    pub fn EndDeferWindowPos(hWinPosInfo: Hdwp) -> Bool;
     pub fn EndPaint(hWnd: Hwnd, lpPaint: *const PAINTSTRUCT) -> Bool;
+    pub fn FillRect(hDC: Hdc, lprc: *const RECT, hbr: Hbrush) -> Int;
     pub fn GetPropW(hWnd: Hwnd, lpString: Lpcwstr) -> Handle;
     pub fn GetMessageW(
         lpMsg: *const MSG,
@@ -263,19 +311,39 @@ extern "system" {
         wMsgFilterMin: Uint,
         wMsgFilterMax: Uint,
     ) -> Bool;
+    pub fn InvalidateRect(hWnd: Hwnd, lprc: *const RECT, bErase: Bool) -> Bool;
     pub fn LoadCursorW(hInstance: Hinstance, lpCursorName: Lpcwstr) -> Hcursor;
+    pub fn LoadImageW(
+        hInst: Hinstance,
+        name: Lpcwstr,
+        r#type: Uint,
+        cx: Int,
+        cy: Int,
+        fuLoad: Uint,
+    ) -> Handle;
     pub fn PostQuitMessage(nExitCode: Int);
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> Atom;
     pub fn RemovePropW(hWnd: Hwnd, lpString: Lpcwstr) -> Handle;
     pub fn SetPropW(hWnd: Hwnd, lpString: Lpcwstr, hData: Handle) -> Bool;
     pub fn ShowWindow(hWnd: Hwnd, nCmdShow: Int) -> Bool;
     pub fn TranslateMessage(lpMsg: *const MSG) -> Bool;
+    pub fn UpdateWindow(hWnd: Hwnd) -> Bool;
 }
 
 #[link(name = "Comctl32")]
 extern "system" {
     pub fn DefSubclassProc(hWnd: Hwnd, uMsg: Uint, wParam: Wparam, lParam: Lparam) -> Lresult;
-    pub fn SetWindowSubclass(hWnd: Hwnd, pfnSubclass: Subclassproc, uIdSubclass: UintPtr, dwRefData: DwordPtr) -> Bool;
+    pub fn SetWindowSubclass(
+        hWnd: Hwnd,
+        pfnSubclass: Subclassproc,
+        uIdSubclass: UintPtr,
+        dwRefData: DwordPtr,
+    ) -> Bool;
+}
+
+#[link(name = "Gdi32")]
+extern "system" {
+    pub fn CreateSolidBrush(color: Colorref) -> Hbrush;
 }
 
 pub fn get_process_handle() -> Hmodule {
@@ -401,7 +469,11 @@ pub fn create_control_window(
     }
 }
 
-pub fn set_window_subclass(hwnd: Hwnd, pfnsubclass: Subclassproc, uidsubclass: UintPtr) -> Result<(), ()> {
+pub fn set_window_subclass(
+    hwnd: Hwnd,
+    pfnsubclass: Subclassproc,
+    uidsubclass: UintPtr,
+) -> Result<(), ()> {
     if unsafe { SetWindowSubclass(hwnd, pfnsubclass, uidsubclass, 0) } == 0 {
         Err(())
     } else {
@@ -424,4 +496,72 @@ pub fn get_prop<T>(hwnd: Hwnd, string: &str) -> Result<&mut T, ()> {
     } else {
         Ok(unsafe { &mut *(handle as *mut T) })
     }
+}
+
+pub fn load_icon(instance: Hinstance, filename: &str) -> Result<Hicon, Win32Error> {
+    let handle = unsafe {
+        LoadImageW(
+            instance,
+            wide_null(filename).as_ptr(),
+            1,
+            0,
+            0,
+            LR_LOADFROMFILE,
+        )
+    };
+    if handle.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(handle)
+    }
+}
+
+pub fn create_brush(r: u32, g: u32, b: u32) -> Result<Hbrush, ()> {
+    let hbrush = unsafe { CreateSolidBrush(rgb(r, g, b)) };
+    if hbrush.is_null() {
+        Err(())
+    } else {
+        Ok(hbrush)
+    }
+}
+
+pub fn fill_rect(hdc: Hdc, rc: &RECT, hbr: Hbrush) -> Result<(), ()> {
+    if unsafe { FillRect(hdc, rc, hbr) } != 0 {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
+pub fn draw_icon(hdc: Hdc, hicon: Hicon) -> Result<(), Win32Error> {
+    if unsafe { DrawIcon(hdc, 0, 0, hicon) } != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
+}
+
+pub fn begin_defer_window_pos(nnumwindows: Int) -> Result<Hdwp, Win32Error> {
+    let hdwp = unsafe { BeginDeferWindowPos(nnumwindows) };
+    if hdwp.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hdwp)
+    }
+}
+
+pub fn end_defer_window_pos(hwinposinfo: Hdwp) -> Result<(), Win32Error> {
+    if unsafe { EndDeferWindowPos(hwinposinfo) } != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
+}
+
+pub fn hiword(l: Dword) -> Word {
+    ((l >> 16) & 0xffff) as Word
+}
+
+pub fn loword(l: Dword) -> Word {
+    (l & 0xffff) as Word
 }
