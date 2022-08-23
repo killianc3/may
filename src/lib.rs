@@ -1,12 +1,12 @@
 use windows::{
-    core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::UI::Controls::*,
-    Win32::UI::Shell::*, Win32::UI::WindowsAndMessaging::*,
+    core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::System::WindowsProgramming::*,
+    Win32::UI::Controls::*, Win32::UI::Shell::*, Win32::UI::WindowsAndMessaging::*,
 };
 
 pub fn create_window<T: Into<PCWSTR>>(
     class: T,
     name: &str,
-    [width, height]: [i32; 2],
+    (width, height): (i32, i32),
     instance: HINSTANCE,
     lpparam: *const core::ffi::c_void,
 ) -> HWND {
@@ -31,7 +31,7 @@ pub fn create_window<T: Into<PCWSTR>>(
 pub fn create_control<T: Into<PCWSTR>>(
     class: T,
     style: Option<u32>,
-    [width, height]: [i32; 2],
+    (width, height): (i32, i32),
     parent: HWND,
     instance: HINSTANCE,
 ) -> HWND {
@@ -73,7 +73,7 @@ pub struct Control {
     pub proc: SUBCLASSPROC,
     pub x: (f32, i32),
     pub y: (f32, i32),
-    pub size: [i32; 2],
+    pub size: (i32, i32),
     pub data: usize,
 }
 
@@ -100,6 +100,9 @@ pub extern "system" fn buttonproc(
     unsafe {
         match umsg as u32 {
             WM_PAINT => {
+                let mut rc = RECT::default();
+                GetClientRect(hwnd, &mut rc);
+                let (width, height) = (rc.right - rc.left, rc.bottom - rc.top);
                 let data = dwrefdata as *mut ButtonData;
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(hwnd, &mut ps);
@@ -110,16 +113,46 @@ pub extern "system" fn buttonproc(
                         } else {
                             (*data).index += 1
                         }
-                        DrawIcon(hdc, 0, 0, (*data).icons[(*data).index][0])
-                            .ok()
-                            .unwrap();
+                        DrawIconEx(
+                            hdc,
+                            0,
+                            0,
+                            (*data).icons[(*data).index][0],
+                            width,
+                            height,
+                            0,
+                            HBRUSH(0),
+                            DI_NORMAL,
+                        )
+                        .ok()
+                        .unwrap();
                     }
-                    State::Hover => DrawIcon(hdc, 0, 0, (*data).icons[(*data).index][1])
-                        .ok()
-                        .unwrap(),
-                    State::Idle => DrawIcon(hdc, 0, 0, (*data).icons[(*data).index][0])
-                        .ok()
-                        .unwrap(),
+                    State::Hover => DrawIconEx(
+                        hdc,
+                        0,
+                        0,
+                        (*data).icons[(*data).index][1],
+                        width,
+                        height,
+                        0,
+                        HBRUSH(0),
+                        DI_NORMAL,
+                    )
+                    .ok()
+                    .unwrap(),
+                    State::Idle => DrawIconEx(
+                        hdc,
+                        0,
+                        0,
+                        (*data).icons[(*data).index][0],
+                        width,
+                        height,
+                        0,
+                        HBRUSH(0),
+                        DI_NORMAL,
+                    )
+                    .ok()
+                    .unwrap(),
                 }
                 EndPaint(hwnd, &mut ps).ok().unwrap();
                 return LRESULT(0);
@@ -245,4 +278,56 @@ pub fn loword(l: u32) -> u16 {
 }
 pub fn hiword(l: u32) -> u16 {
     ((l >> 16) & 0xffff) as u16
+}
+
+pub fn icon(path: &str, ins: HINSTANCE) -> Result<HICON> {
+    unsafe {
+        Ok(HICON(
+            LoadImageW(
+                ins,
+                &HSTRING::from(format!("icons/{path}")),
+                IMAGE_ICON,
+                0,
+                0,
+                LR_LOADFROMFILE,
+            )?
+            .0,
+        ))
+    }
+}
+
+pub fn log_to_phy_rc(mut rc: RECT) -> RECT {
+    unsafe {
+        let dpi = GetDeviceCaps(GetDC(HWND(0)), LOGPIXELSX);
+        rc.left = MulDiv(rc.left, dpi, 96);
+        rc.top = MulDiv(rc.top, dpi, 96);
+        rc.right = MulDiv(rc.right, dpi, 96);
+        rc.bottom = MulDiv(rc.bottom, dpi, 96);
+        rc
+    }
+}
+
+pub fn phy_to_log_rc(mut rc: RECT) -> RECT {
+    unsafe {
+        let dpi = GetDeviceCaps(GetDC(HWND(0)), LOGPIXELSX);
+        rc.left = MulDiv(rc.left, 96, dpi);
+        rc.top = MulDiv(rc.top, 96, dpi);
+        rc.right = MulDiv(rc.right, 96, dpi);
+        rc.bottom = MulDiv(rc.bottom, 96, dpi);
+        rc
+    }
+}
+
+pub fn log_to_phy(x: i32, y: i32) -> (i32, i32) {
+    unsafe {
+        let dpi = GetDeviceCaps(GetDC(HWND(0)), LOGPIXELSX);
+        (MulDiv(x, dpi, 96), MulDiv(y, dpi, 96))
+    }
+}
+
+pub fn phy_to_log(x: i32, y: i32) -> (i32, i32) {
+    unsafe {
+        let dpi = GetDeviceCaps(GetDC(HWND(0)), LOGPIXELSX);
+        (MulDiv(x, 96, dpi), MulDiv(y, 96, dpi))
+    }
 }
