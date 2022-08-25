@@ -57,6 +57,13 @@ pub fn create_control<T: Into<PCWSTR>>(
     }
 }
 
+pub struct Fonts {
+    pub book: HFONT,
+    pub light: HFONT,
+    pub medium: HFONT,
+    pub bold: HFONT,
+}
+
 #[derive(Default)]
 pub enum State {
     #[default]
@@ -193,9 +200,10 @@ pub extern "system" fn trackbarproc(
     unsafe {
         match umsg as u32 {
             WM_PAINT => {
-                let mut client_rc = RECT::default();
-                GetClientRect(hwnd, &mut client_rc);
-                InvalidateRect(hwnd, &client_rc, BOOL(0)).ok().unwrap();
+                let mut rc = RECT::default();
+                GetClientRect(hwnd, &mut rc);
+                InvalidateRect(hwnd, &rc, BOOL(0)).ok().unwrap();
+                rc = phy_to_log_rc(rc);
 
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(hwnd, &mut ps);
@@ -207,42 +215,42 @@ pub extern "system" fn trackbarproc(
                     WPARAM(0),
                     LPARAM((&mut thumb) as *mut _ as isize),
                 );
+                thumb = phy_to_log_rc(thumb);
 
                 let data = dwrefdata as *mut TrackbarData;
 
-                SetDCBrushColor(hdc, 0x00181818);
-                FillRect(hdc, &ps.rcPaint, HBRUSH(GetStockObject(DC_BRUSH).0));
+                FillRect(hdc, &log_to_phy_rc(rc), CreateSolidBrush(0x00181818));
 
-                let old_brush = SelectObject(hdc, CreateSolidBrush(0x005E5E5E));
-                let old_pen = SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x005E5E5E));
+                let old_b = SelectObject(hdc, CreateSolidBrush(0x005E5E5E));
+                let old_p = SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x005E5E5E));
 
-                RoundRect(hdc, client_rc.left + 6, 6, client_rc.right - 6, 10, 2, 2);
+                let rct = log_to_phy_rc(RECT { left: rc.left + 9, top: rc.top + 4, right: rc.right - 5, bottom: rc.bottom - 4 });
+                RoundRect(hdc, rct.left, rct.top, rct.right, rct.bottom, 4, 4);
 
                 match (*data).state {
                     State::Idle => {
                         SelectObject(hdc, CreateSolidBrush(0x00FFFFFF));
                         SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x00FFFFFF));
-                        RoundRect(hdc, client_rc.left + 6, 6, thumb.right, 10, 2, 2);
                     }
                     State::Hover => {
                         SelectObject(hdc, CreateSolidBrush(0x001DB954));
                         SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x001DB954));
-                        RoundRect(hdc, client_rc.left + 6, 6, thumb.right, 10, 2, 2);
-                        SelectObject(hdc, CreateSolidBrush(0x00FFFFFF));
-                        SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x00FFFFFF));
-                        Ellipse(
-                            hdc,
-                            thumb.left - 2,
-                            thumb.top + 1,
-                            thumb.right + 2,
-                            thumb.bottom - 1,
-                        );
                     }
                     _ => (),
                 }
 
-                SelectObject(hdc, old_brush);
-                SelectObject(hdc, old_pen);
+                let rct = log_to_phy_rc(RECT { left: rc.left + 9, top: rc.top + 4, right: thumb.right, bottom: rc.bottom - 4 });
+                RoundRect(hdc, rct.left, rct.top, rct.right, rct.bottom, 4, 4);
+
+                if let State::Hover = (*data).state {
+                    SelectObject(hdc, CreateSolidBrush(0x00FFFFFF));
+                    SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x00FFFFFF));
+                    let rct = log_to_phy_rc(RECT { left: thumb.right - 6, top: rc.top, right: thumb.right + 6, bottom: rc.bottom });
+                    Ellipse(hdc, rct.left, rct.top, rct.right, rct.bottom);
+                };
+
+                SelectObject(hdc, old_b);
+                SelectObject(hdc, old_p);
 
                 EndPaint(hwnd, &mut ps).ok().unwrap();
                 LRESULT(0)

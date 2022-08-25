@@ -2,11 +2,12 @@ use windows::{
     core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*,
     Win32::System::LibraryLoader::GetModuleHandleW, Win32::UI::Controls::*,
     Win32::UI::Shell::SetWindowSubclass, Win32::UI::WindowsAndMessaging::*,
+    Win32::System::WindowsProgramming::*,
 };
 
 use may::{
     buttonproc, create_control, create_window, hiword, icon, log_to_phy, log_to_phy_rc, loword,
-    phy_to_log, phy_to_log_rc, trackbarproc, ButtonData, Control, TrackbarData,
+    phy_to_log, phy_to_log_rc, trackbarproc, ButtonData, Control, TrackbarData, Fonts,
 };
 
 fn main() -> Result<()> {
@@ -41,7 +42,7 @@ fn main() -> Result<()> {
             class: HSTRING::from("Button"),
             proc: Some(buttonproc),
             x: (0.5, -17),
-            y: (1.0, -79),
+            y: (1.0, -76),
             size: (34, 34),
             data: &mut btn1 as *mut _ as usize,
             ..Default::default()
@@ -57,7 +58,7 @@ fn main() -> Result<()> {
             class: HSTRING::from("Button"),
             proc: Some(buttonproc),
             x: (0.5, -55),
-            y: (1.0, -69),
+            y: (1.0, -66),
             size: (14, 14),
             data: &mut btn2 as *mut _ as usize,
             ..Default::default()
@@ -73,7 +74,7 @@ fn main() -> Result<()> {
             class: HSTRING::from("button"),
             proc: Some(buttonproc),
             x: (0.5, 41),
-            y: (1.0, -69),
+            y: (1.0, -66),
             size: (14, 14),
             data: &mut btn3 as *mut _ as usize,
             ..Default::default()
@@ -90,7 +91,7 @@ fn main() -> Result<()> {
             class: HSTRING::from("button"),
             proc: Some(buttonproc),
             x: (0.5, -101),
-            y: (1.0, -71),
+            y: (1.0, -68),
             size: (26, 26),
             data: &mut btn4 as *mut _ as usize,
             ..Default::default()
@@ -109,39 +110,180 @@ fn main() -> Result<()> {
             class: HSTRING::from("button"),
             proc: Some(buttonproc),
             x: (0.5, 75),
-            y: (1.0, -71),
+            y: (1.0, -68),
             size: (26, 26),
             data: &mut btn5 as *mut _ as usize,
             ..Default::default()
         });
 
-        /*
+        let mut btn6 = ButtonData {
+            icons: vec![
+                [icon("list.ico", ins)?, icon("listh.ico", ins)?],
+                [icon("list2.ico", ins)?, icon("list2h.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (1.0, -233),
+            y: (1.0, -54),
+            size: (26, 26),
+            data: &mut btn6 as *mut _ as usize,
+            ..Default::default()
+        });
+
+        let mut btn7 = ButtonData {
+            icons: vec![
+                [icon("dev.ico", ins)?, icon("devh.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (1.0, -197),
+            y: (1.0, -54),
+            size: (18, 18),
+            data: &mut btn7 as *mut _ as usize,
+            ..Default::default()
+        });
+
+        let mut btn8 = ButtonData {
+            icons: vec![
+                [icon("soun2.ico", ins)?, icon("soun2h.ico", ins)?],
+                [icon("soun.ico", ins)?, icon("sounh.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (1.0, -165),
+            y: (1.0, -54),
+            size: (18, 18),
+            data: &mut btn8 as *mut _ as usize,
+            ..Default::default()
+        });
+
+        let mut btn9 = ButtonData {
+            icons: vec![
+                [icon("full.ico", ins)?, icon("fullh.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (1.0, -39),
+            y: (1.0, -56),
+            size: (16, 16),
+            data: &mut btn9 as *mut _ as usize,
+            ..Default::default()
+        });
+
+        let mut btn10 = ButtonData {
+            icons: vec![
+                [icon("mic.ico", ins)?, icon("mich.ico", ins)?],
+                [icon("mic2.ico", ins)?, icon("mic2h.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (1.0, -265),
+            y: (1.0, -55),
+            size: (26, 26),
+            data: &mut btn10 as *mut _ as usize,
+            ..Default::default()
+        });
+
+        let mut btn11 = ButtonData {
+            icons: vec![
+                [icon("hea.ico", ins)?, icon("heah.ico", ins)?],
+                [icon("hea2.ico", ins)?, icon("hea2h.ico", ins)?],
+            ],
+            ..Default::default()
+        };
+        controls.push(Control {
+            class: HSTRING::from("button"),
+            proc: Some(buttonproc),
+            x: (0.0, 200),
+            y: (1.0, -58),
+            size: (18, 18),
+            data: &mut btn11 as *mut _ as usize,
+            ..Default::default()
+        });
+
         let mut tbr1 = TrackbarData::default();
         controls.push(Control {
             class: HSTRING::from("msctls_trackbar32"),
             style: Some(TBS_NOTICKS),
             proc: Some(trackbarproc),
-            x: (0.5, -319),
-            y: (1.0, -35),
-            size: (638, 18),
+            x: (0.5, -210),
+            y: (1.0, -32),
+            size: (417, 12),
             data: &mut tbr1 as *mut _ as usize,
             ..Default::default()
-        });*/
+        });
+
+        let mut tbr2 = TrackbarData::default();
+        controls.push(Control {
+            class: HSTRING::from("msctls_trackbar32"),
+            style: Some(TBS_NOTICKS),
+            proc: Some(trackbarproc),
+            x: (1.0, -148),
+            y: (1.0, -51),
+            size: (106, 12),
+            data: &mut tbr2 as *mut _ as usize,
+            ..Default::default()
+        });
 
         let ptr: *const core::ffi::c_void = &mut controls as *mut _ as *const core::ffi::c_void;
-        let _hwnd = create_window(window_class, "spotify", log_to_phy(600, 200), ins, ptr);
+        let hwnd = create_window(window_class, "spotify", log_to_phy(1080, 480), ins, ptr);
+        let hdc = GetDC(hwnd);
 
-        /*let result = AddFontResourceExW(w!("GothamBook.ttf"), FR_PRIVATE, core::ptr::null_mut());
+        let result = AddFontResourceExW(w!("fonts/gothambold-Bold.otf"), FR_PRIVATE, core::ptr::null_mut());
+        debug_assert!(result != 0);
+        let result = AddFontResourceExW(w!("fonts/gothammedium-Medium.otf"), FR_PRIVATE, core::ptr::null_mut());
         debug_assert!(result != 0);
 
-        let mut lg = LOGFONTW::default();
-        lg.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
-        for (a, b) in "Gotham".encode_utf16().enumerate() {
-            lg.lfFaceName[a] = b;
+        let mut lf1 = LOGFONTW::default();
+        lf1.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        for (a, b) in "gothambold".encode_utf16().enumerate() {
+            lf1.lfFaceName[a] = b;
         }
+        let hfont1 = CreateFontIndirectW(&lf1 as *const _);
 
-        let hfont = CreateFontIndirectW(&lg as *const _);
-        SetPropW(hwnd, w!("font"), HANDLE(&hfont as *const _ as isize));*/
+        let mut lf2 = LOGFONTW::default();
+        lf2.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        for (a, b) in "gothammedium".encode_utf16().enumerate() {
+            lf2.lfFaceName[a] = b;
+        }
+        let hfont2 = CreateFontIndirectW(&lf2 as *const _);
+
+        let mut lf3 = LOGFONTW::default();
+        lf3.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        for (a, b) in "gothamlight".encode_utf16().enumerate() {
+            lf3.lfFaceName[a] = b;
+        }
+        let hfont3 = CreateFontIndirectW(&lf3 as *const _);
+
+        let mut lf4 = LOGFONTW::default();
+        lf4.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        for (a, b) in "gothambook".encode_utf16().enumerate() {
+            lf4.lfFaceName[a] = b;
+        }
+        let hfont4 = CreateFontIndirectW(&lf4 as *const _);
+
+        let fonts = Fonts {
+            book: hfont4,
+            light: hfont3,
+            medium: hfont1,
+            bold: hfont2,
+        };
+        SetPropW(hwnd, w!("fonts"), HANDLE(&fonts as *const _ as isize));
 
         let mut msg = MSG::default();
 
@@ -149,7 +291,8 @@ fn main() -> Result<()> {
             DispatchMessageA(&msg);
         }
 
-        //RemoveFontResourceExW(w!("GothamBook.ttf"), FR_PRIVATE.0, core::ptr::null_mut()).ok()?;
+        RemoveFontResourceExW(w!("fonts/gothambold-Bold.otf"), FR_PRIVATE.0, core::ptr::null_mut()).ok()?;
+        RemoveFontResourceExW(w!("fonts/gothammedium-Medium.otf"), FR_PRIVATE.0, core::ptr::null_mut()).ok()?;
 
         Ok(())
     }
@@ -182,7 +325,23 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
             }
             WM_PAINT => {
                 let mut ps = PAINTSTRUCT::default();
-                let _hdc = BeginPaint(hwnd, &mut ps);
+                let hdc = BeginPaint(hwnd, &mut ps);
+
+                let mut rc = RECT::default();
+                GetClientRect(hwnd, &mut rc);
+                rc = phy_to_log_rc(rc);
+
+                let fonts = GetPropW(hwnd, w!("fonts")).0 as *const Fonts;
+                
+                SetBkMode(hdc, TRANSPARENT);
+                SetTextColor(hdc, 0x00A7A7A7);
+
+                let old_f = SelectObject(hdc, (*fonts).book);
+                let (x, y) = log_to_phy((rc.right as f32 * 0.5) as i32 - 230, rc.bottom - 32);
+                TextOutW(hdc, x, y, w!("0:00").as_wide());
+                let (x, y) = log_to_phy((rc.right as f32 * 0.5) as i32 + 210, rc.bottom - 32);
+                TextOutW(hdc, x, y, w!("-1:43").as_wide());
+                SelectObject(hdc, old_f);
 
                 EndPaint(hwnd, &mut ps).ok().unwrap();
                 LRESULT(0)
@@ -253,6 +412,7 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
             }
             WM_DESTROY => {
                 RemovePropW(hwnd, w!("controls")).ok().unwrap();
+                RemovePropW(hwnd, w!("fonts")).ok().unwrap();
                 PostQuitMessage(0);
                 LRESULT(0)
             }
