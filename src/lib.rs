@@ -224,7 +224,12 @@ pub extern "system" fn trackbarproc(
                 let old_b = SelectObject(hdc, CreateSolidBrush(0x005E5E5E));
                 let old_p = SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x005E5E5E));
 
-                let rct = log_to_phy_rc(RECT { left: rc.left + 9, top: rc.top + 4, right: rc.right - 5, bottom: rc.bottom - 4 });
+                let rct = log_to_phy_rc(RECT {
+                    left: rc.left + 9,
+                    top: rc.top + 4,
+                    right: rc.right - 5,
+                    bottom: rc.bottom - 4,
+                });
                 RoundRect(hdc, rct.left, rct.top, rct.right, rct.bottom, 4, 4);
 
                 match (*data).state {
@@ -239,13 +244,23 @@ pub extern "system" fn trackbarproc(
                     _ => (),
                 }
 
-                let rct = log_to_phy_rc(RECT { left: rc.left + 9, top: rc.top + 4, right: thumb.right, bottom: rc.bottom - 4 });
+                let rct = log_to_phy_rc(RECT {
+                    left: rc.left + 9,
+                    top: rc.top + 4,
+                    right: thumb.right,
+                    bottom: rc.bottom - 4,
+                });
                 RoundRect(hdc, rct.left, rct.top, rct.right, rct.bottom, 4, 4);
 
                 if let State::Hover = (*data).state {
                     SelectObject(hdc, CreateSolidBrush(0x00FFFFFF));
                     SelectObject(hdc, CreatePen(PS_SOLID, 0, 0x00FFFFFF));
-                    let rct = log_to_phy_rc(RECT { left: thumb.right - 6, top: rc.top, right: thumb.right + 6, bottom: rc.bottom });
+                    let rct = log_to_phy_rc(RECT {
+                        left: thumb.right - 6,
+                        top: rc.top,
+                        right: thumb.right + 6,
+                        bottom: rc.bottom,
+                    });
                     Ellipse(hdc, rct.left, rct.top, rct.right, rct.bottom);
                 };
 

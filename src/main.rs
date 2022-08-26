@@ -1,13 +1,12 @@
 use windows::{
     core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*,
-    Win32::System::LibraryLoader::GetModuleHandleW, Win32::UI::Controls::*,
-    Win32::UI::Shell::SetWindowSubclass, Win32::UI::WindowsAndMessaging::*,
-    Win32::System::WindowsProgramming::*,
+    Win32::System::LibraryLoader::GetModuleHandleW, Win32::System::WindowsProgramming::*,
+    Win32::UI::Controls::*, Win32::UI::Shell::SetWindowSubclass, Win32::UI::WindowsAndMessaging::*,
 };
 
 use may::{
     buttonproc, create_control, create_window, hiword, icon, log_to_phy, log_to_phy_rc, loword,
-    phy_to_log, phy_to_log_rc, trackbarproc, ButtonData, Control, TrackbarData, Fonts,
+    phy_to_log, phy_to_log_rc, trackbarproc, ButtonData, Control, Fonts, TrackbarData,
 };
 
 fn main() -> Result<()> {
@@ -23,6 +22,7 @@ fn main() -> Result<()> {
             lpszClassName: PCWSTR::from(window_class),
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(wndproc),
+            hIcon: icon("logo.ico", ins)?,
             ..Default::default()
         };
 
@@ -49,9 +49,7 @@ fn main() -> Result<()> {
         });
 
         let mut btn2 = ButtonData {
-            icons: vec![
-                [icon("back.ico", ins)?, icon("backh.ico", ins)?],
-            ],
+            icons: vec![[icon("back.ico", ins)?, icon("backh.ico", ins)?]],
             ..Default::default()
         };
         controls.push(Control {
@@ -65,9 +63,7 @@ fn main() -> Result<()> {
         });
 
         let mut btn3 = ButtonData {
-            icons: vec![
-                [icon("next.ico", ins)?, icon("nexth.ico", ins)?],
-            ],
+            icons: vec![[icon("next.ico", ins)?, icon("nexth.ico", ins)?]],
             ..Default::default()
         };
         controls.push(Control {
@@ -96,7 +92,6 @@ fn main() -> Result<()> {
             data: &mut btn4 as *mut _ as usize,
             ..Default::default()
         });
-
 
         let mut btn5 = ButtonData {
             icons: vec![
@@ -134,9 +129,7 @@ fn main() -> Result<()> {
         });
 
         let mut btn7 = ButtonData {
-            icons: vec![
-                [icon("dev.ico", ins)?, icon("devh.ico", ins)?],
-            ],
+            icons: vec![[icon("dev.ico", ins)?, icon("devh.ico", ins)?]],
             ..Default::default()
         };
         controls.push(Control {
@@ -167,9 +160,7 @@ fn main() -> Result<()> {
         });
 
         let mut btn9 = ButtonData {
-            icons: vec![
-                [icon("full.ico", ins)?, icon("fullh.ico", ins)?],
-            ],
+            icons: vec![[icon("full.ico", ins)?, icon("fullh.ico", ins)?]],
             ..Default::default()
         };
         controls.push(Control {
@@ -201,16 +192,16 @@ fn main() -> Result<()> {
 
         let mut btn11 = ButtonData {
             icons: vec![
-                [icon("hea.ico", ins)?, icon("heah.ico", ins)?],
                 [icon("hea2.ico", ins)?, icon("hea2h.ico", ins)?],
+                [icon("hea.ico", ins)?, icon("heah.ico", ins)?],
             ],
             ..Default::default()
         };
         controls.push(Control {
             class: HSTRING::from("button"),
             proc: Some(buttonproc),
-            x: (0.0, 200),
-            y: (1.0, -58),
+            x: (0.0, 184),
+            y: (1.0, -54),
             size: (18, 18),
             data: &mut btn11 as *mut _ as usize,
             ..Default::default()
@@ -244,20 +235,28 @@ fn main() -> Result<()> {
         let hwnd = create_window(window_class, "spotify", log_to_phy(1080, 480), ins, ptr);
         let hdc = GetDC(hwnd);
 
-        let result = AddFontResourceExW(w!("fonts/gothambold-Bold.otf"), FR_PRIVATE, core::ptr::null_mut());
+        let result = AddFontResourceExW(
+            w!("fonts/gothambold-Bold.otf"),
+            FR_PRIVATE,
+            core::ptr::null_mut(),
+        );
         debug_assert!(result != 0);
-        let result = AddFontResourceExW(w!("fonts/gothammedium-Medium.otf"), FR_PRIVATE, core::ptr::null_mut());
+        let result = AddFontResourceExW(
+            w!("fonts/gothammedium-Medium.otf"),
+            FR_PRIVATE,
+            core::ptr::null_mut(),
+        );
         debug_assert!(result != 0);
 
         let mut lf1 = LOGFONTW::default();
-        lf1.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        lf1.lfHeight = -MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72);
         for (a, b) in "gothambold".encode_utf16().enumerate() {
             lf1.lfFaceName[a] = b;
         }
         let hfont1 = CreateFontIndirectW(&lf1 as *const _);
 
         let mut lf2 = LOGFONTW::default();
-        lf2.lfHeight = -MulDiv(8, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        lf2.lfHeight = -MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72);
         for (a, b) in "gothammedium".encode_utf16().enumerate() {
             lf2.lfFaceName[a] = b;
         }
@@ -280,10 +279,13 @@ fn main() -> Result<()> {
         let fonts = Fonts {
             book: hfont4,
             light: hfont3,
-            medium: hfont1,
-            bold: hfont2,
+            medium: hfont2,
+            bold: hfont1,
         };
         SetPropW(hwnd, w!("fonts"), HANDLE(&fonts as *const _ as isize));
+
+        let garo = icon("garo.ico", ins)?;
+        SetPropW(hwnd, w!("garo"), HANDLE(&garo as *const _ as isize));
 
         let mut msg = MSG::default();
 
@@ -291,8 +293,18 @@ fn main() -> Result<()> {
             DispatchMessageA(&msg);
         }
 
-        RemoveFontResourceExW(w!("fonts/gothambold-Bold.otf"), FR_PRIVATE.0, core::ptr::null_mut()).ok()?;
-        RemoveFontResourceExW(w!("fonts/gothammedium-Medium.otf"), FR_PRIVATE.0, core::ptr::null_mut()).ok()?;
+        RemoveFontResourceExW(
+            w!("fonts/gothambold-Bold.otf"),
+            FR_PRIVATE.0,
+            core::ptr::null_mut(),
+        )
+        .ok()?;
+        RemoveFontResourceExW(
+            w!("fonts/gothammedium-Medium.otf"),
+            FR_PRIVATE.0,
+            core::ptr::null_mut(),
+        )
+        .ok()?;
 
         Ok(())
     }
@@ -332,7 +344,8 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
                 rc = phy_to_log_rc(rc);
 
                 let fonts = GetPropW(hwnd, w!("fonts")).0 as *const Fonts;
-                
+                let garo = GetPropW(hwnd, w!("garo")).0 as *const HICON;
+
                 SetBkMode(hdc, TRANSPARENT);
                 SetTextColor(hdc, 0x00A7A7A7);
 
@@ -341,7 +354,17 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
                 TextOutW(hdc, x, y, w!("0:00").as_wide());
                 let (x, y) = log_to_phy((rc.right as f32 * 0.5) as i32 + 210, rc.bottom - 32);
                 TextOutW(hdc, x, y, w!("-1:43").as_wide());
+                let (x, y) = log_to_phy(85, rc.bottom - 41);
+                TextOutW(hdc, x, y, w!("LVZ, Max DLG").as_wide());
+                let (x, y) = log_to_phy(85, rc.bottom - 62);
+                SetTextColor(hdc, 0x00FFFFFF);
+                SelectObject(hdc, (*fonts).medium);
+                TextOutW(hdc, x, y, w!("Garo").as_wide());
                 SelectObject(hdc, old_f);
+
+                let (width, height) = log_to_phy(56, 56);
+                let (x, y) = log_to_phy(15, rc.bottom - 73);
+                DrawIconEx(hdc, x, y, *garo, width, height, 0, HBRUSH(0), DI_NORMAL);
 
                 EndPaint(hwnd, &mut ps).ok().unwrap();
                 LRESULT(0)
@@ -351,6 +374,19 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
                 let mut rc = RECT::default();
                 GetClientRect(hwnd, &mut rc);
                 rc = phy_to_log_rc(rc);
+
+                SetDCBrushColor(hdc, 0x00121212);
+                let rc_temp = RECT {
+                    left: 240,
+                    top: 0,
+                    right: rc.right,
+                    bottom: rc.bottom - 92,
+                };
+                FillRect(
+                    hdc,
+                    &log_to_phy_rc(rc_temp),
+                    HBRUSH(GetStockObject(DC_BRUSH).0),
+                );
 
                 SetDCBrushColor(hdc, 0x00000000);
                 let rc_temp = RECT {
@@ -413,6 +449,7 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
             WM_DESTROY => {
                 RemovePropW(hwnd, w!("controls")).ok().unwrap();
                 RemovePropW(hwnd, w!("fonts")).ok().unwrap();
+                RemovePropW(hwnd, w!("garo")).ok().unwrap();
                 PostQuitMessage(0);
                 LRESULT(0)
             }
