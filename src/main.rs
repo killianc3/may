@@ -11,24 +11,24 @@ use may::{
 
 fn main() -> Result<()> {
     unsafe {
-        let ins = GetModuleHandleW(None)?;
-        debug_assert!(ins.0 != 0);
+        let ins = GetModuleHandleW(None)?; // get the module handle required for the suite
+        debug_assert!(ins.0 != 0); // panic if the handle is null
 
-        let window_class = w!("window");
-
+        // setup the windows class
         let wc = WNDCLASSW {
             hCursor: LoadCursorW(None, IDC_ARROW)?,
             hInstance: ins,
-            lpszClassName: PCWSTR::from(window_class),
+            lpszClassName: PCWSTR::from(&HSTRING::from("window")),
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(wndproc),
             hIcon: icon("logo.ico", ins)?,
             ..Default::default()
         };
 
-        let atom = RegisterClassW(&wc);
-        debug_assert!(atom != 0);
+        let atom = RegisterClassW(&wc); // register previous class
+        debug_assert!(atom != 0); // panic if registration failed
 
+        // Vector that contains all subclass data
         let mut controls: Vec<Control> = Vec::new();
 
         let mut btn1 = ButtonData {
@@ -231,16 +231,29 @@ fn main() -> Result<()> {
             ..Default::default()
         });
 
+        // create pointer to controls
         let ptr: *const core::ffi::c_void = &mut controls as *mut _ as *const core::ffi::c_void;
-        let hwnd = create_window(window_class, "spotify", log_to_phy(1080, 480), ins, ptr);
+
+        // create the main window
+        let hwnd = create_window(
+            &HSTRING::from("window"),
+            "spotify",
+            log_to_phy(1080, 480),
+            ins,
+            ptr,
+        );
+
+        // get the handle to the device context
         let hdc = GetDC(hwnd);
 
+        // install font from file
         let result = AddFontResourceExW(
             w!("fonts/gothambold-Bold.otf"),
             FR_PRIVATE,
             core::ptr::null_mut(),
         );
-        debug_assert!(result != 0);
+        debug_assert!(result != 0); // panic if installation failed
+                                   
         let result = AddFontResourceExW(
             w!("fonts/gothammedium-Medium.otf"),
             FR_PRIVATE,
@@ -248,12 +261,27 @@ fn main() -> Result<()> {
         );
         debug_assert!(result != 0);
 
+        let result = AddFontResourceExW(
+            w!("fonts/gothambook-Book.otf"),
+            FR_PRIVATE,
+            core::ptr::null_mut(),
+        );
+        debug_assert!(result != 0);
+
+        let result = AddFontResourceExW(
+            w!("fonts/gothamlight-Light.otf"),
+            FR_PRIVATE,
+            core::ptr::null_mut(),
+        );
+        debug_assert!(result != 0);
+
+        // setup logfont class
         let mut lf1 = LOGFONTW::default();
         lf1.lfHeight = -MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72);
         for (a, b) in "gothambold".encode_utf16().enumerate() {
             lf1.lfFaceName[a] = b;
         }
-        let hfont1 = CreateFontIndirectW(&lf1 as *const _);
+        let hfont1 = CreateFontIndirectW(&lf1 as *const _); // get handle to the custom font
 
         let mut lf2 = LOGFONTW::default();
         lf2.lfHeight = -MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72);
@@ -282,17 +310,22 @@ fn main() -> Result<()> {
             medium: hfont2,
             bold: hfont1,
         };
-        SetPropW(hwnd, w!("fonts"), HANDLE(&fonts as *const _ as isize));
 
-        let garo = icon("garo.ico", ins)?;
+        // pass custom fonts to main window procedure
+        SetPropW(hwnd, w!("fonts"), HANDLE(&fonts as *const _ as isize)); 
+
+        let garo = icon("garo.ico", ins)?; // get handle to an icon
+
+        // pass custom fonts to main window procedure
         SetPropW(hwnd, w!("garo"), HANDLE(&garo as *const _ as isize));
 
+        // the app runtime
         let mut msg = MSG::default();
-
         while GetMessageA(&mut msg, HWND(0), 0, 0).into() {
             DispatchMessageA(&msg);
         }
 
+        // remove custom fonts installation
         RemoveFontResourceExW(
             w!("fonts/gothambold-Bold.otf"),
             FR_PRIVATE.0,
@@ -301,6 +334,18 @@ fn main() -> Result<()> {
         .ok()?;
         RemoveFontResourceExW(
             w!("fonts/gothammedium-Medium.otf"),
+            FR_PRIVATE.0,
+            core::ptr::null_mut(),
+        )
+        .ok()?;
+        RemoveFontResourceExW(
+            w!("fonts/gothambook-Book.otf"),
+            FR_PRIVATE.0,
+            core::ptr::null_mut(),
+        )
+        .ok()?;
+        RemoveFontResourceExW(
+            w!("fonts/gothamlight-Light.otf"),
             FR_PRIVATE.0,
             core::ptr::null_mut(),
         )
